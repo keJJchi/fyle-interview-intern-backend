@@ -15,31 +15,28 @@ app.register_blueprint(principal_assignments_resources, url_prefix='/principal')
 
 @app.route('/')
 def ready():
-    response = jsonify({
+    return jsonify({
         'status': 'ready',
         'time': helpers.get_utc_now()
     })
 
-    return response
-
-
 @app.errorhandler(Exception)
 def handle_error(err):
-    if isinstance(err, FyleError):
-        return jsonify(
-            error=err.__class__.__name__, message=err.message
-        ), err.status_code
-    elif isinstance(err, ValidationError):
-        return jsonify(
-            error=err.__class__.__name__, message=err.messages
-        ), 400
-    elif isinstance(err, IntegrityError):
-        return jsonify(
-            error=err.__class__.__name__, message=str(err.orig)
-        ), 400
-    elif isinstance(err, HTTPException):
-        return jsonify(
-            error=err.__class__.__name__, message=str(err)
-        ), err.code
+    error_responses = {
+        FyleError: lambda e: (
+            jsonify(error=e.__class__.__name__, message=e.message), e.status_code
+        ),
+        ValidationError: lambda e: (
+            jsonify(error=e.__class__.__name__, message=e.messages), 400
+        ),
+        IntegrityError: lambda e: (
+            jsonify(error=e.__class__.__name__, message=str(e.orig)), 400
+        ),
+        HTTPException: lambda e: (
+            jsonify(error=e.__class__.__name__, message=str(e)), e.code
+        )
+    }
 
-    raise err
+    for error_type, response_func in error_responses.items():
+        if isinstance(err, error_type):
+            return response_func(err)
