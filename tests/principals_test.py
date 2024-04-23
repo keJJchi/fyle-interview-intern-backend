@@ -60,3 +60,11 @@ def test_regrade_assignment(client, h_principal):
 
     assert response.json['data']['state'] == AssignmentStateEnum.GRADED.value
     assert response.json['data']['grade'] == GradeEnum.B
+
+def test_no_such_api(client, h_principal):
+    response = client.get(
+        '/principal/principal',
+        headers=h_principal
+    )
+
+    assert response.status_code == 404
