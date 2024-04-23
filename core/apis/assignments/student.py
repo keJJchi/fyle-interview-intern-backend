@@ -3,6 +3,7 @@ from core import db
 from core.apis import decorators
 from core.apis.responses import APIResponse
 from core.models.assignments import Assignment, AssignmentStateEnum
+from core.libs.assertions import assert_valid
 
 from .schema import AssignmentSchema, AssignmentSubmitSchema
 student_assignments_resources = Blueprint('student_assignments_resources', __name__)
@@ -24,6 +25,7 @@ def upsert_assignment(p, incoming_payload):
     """Create or Edit an assignment"""
     assignment = AssignmentSchema().load(incoming_payload)
     assignment.student_id = p.student_id
+    assignment.state = AssignmentStateEnum.DRAFT
 
     upserted_assignment = Assignment.upsert(assignment)
     db.session.commit()
@@ -36,20 +38,16 @@ def upsert_assignment(p, incoming_payload):
 def submit_assignment(p, incoming_payload):
     """Submit an assignment"""
     submit_assignment_payload = AssignmentSubmitSchema().load(incoming_payload)
-    assignment = Assignment.get_by_id(int(incoming_payload.id))
-    if assignment.state == AssignmentStateEnum.DRAFT:
+    assignment = Assignment.get_by_id(submit_assignment_payload.id)
+    if assignment.state in (AssignmentStateEnum.DRAFT, AssignmentStateEnum.GRADED):
         submitted_assignment = Assignment.submit(
             _id=submit_assignment_payload.id,
             teacher_id=submit_assignment_payload.teacher_id,
-            state=AssignmentStateEnum.SUBMITTED.value,
             auth_principal=p
         )
+        db.session.commit()
+        submitted_assignment_dump = AssignmentSchema().dump(submitted_assignment)
+        return APIResponse.respond(data=submitted_assignment_dump)
     else:
-        submitted_assignment = Assignment.submit(
-            _id=submit_assignment_payload.id,
-            teacher_id=submit_assignment_payload.teacher_id,
-            auth_principal=p
-        )
-    db.session.commit()
-    submitted_assignment_dump = AssignmentSchema().dump(submitted_assignment)
-    return APIResponse.respond(data=submitted_assignment_dump)
+        msg='only a draft assignment can be submitted'
+        assert_valid(False, msg)
