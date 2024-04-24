@@ -54,3 +54,11 @@ pytest -vvv -s tests/
 # pytest --cov
 # open htmlcov/index.html
 ```
+### Run Docker-compose 
+
+```
+docker-compose build 
+docker-compose up 
+# open http://127.0.0.1:7755/ 
+docker-compose down 
+```
